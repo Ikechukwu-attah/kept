@@ -1,21 +1,169 @@
 modules:
+  # Promises panel. On a support request it lists the promises made to the
+  # customer; on a dev issue it shows the customer promises riding on it.
   jira:issuePanel:
-    - key: kept-hello-world-issue-panel
-      resource: main
+    - key: kept-promises-panel
+      resource: panel
       resolver:
         function: resolver
       render: native
-      title: kept
-      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+      title: Promises
+      icon: resource:icons;check.svg
+
+  # Dashboard page in the Jira apps menu.
+  jira:globalPage:
+    - key: kept-dashboard
+      resource: dashboard
+      resolver:
+        function: resolver
+      render: native
+      title: Kept — Promises
+
+  # Reads every new comment; public agent replies are scanned for promises.
+  trigger:
+    - key: kept-on-comment
+      function: on-comment
+      events:
+        - avi:jira:commented:issue
+    - key: kept-on-issue-updated
+      function: on-issue-updated
+      events:
+        - avi:jira:updated:issue
+    - key: kept-on-link-created
+      function: on-link-created
+      events:
+        - avi:jira:created:issuelink
+
+  # Hourly sweep: due-soon reminders and broken-promise detection.
+  scheduledTrigger:
+    - key: kept-hourly
+      function: hourly
+      interval: hour
+
+  rovo:agent:
+    - key: promise-keeper
+      name: Promise Keeper
+      description: Knows every promise your support agents made to customers, which ones are at risk, and drafts close-the-loop replies.
+      prompt: resource:agent-prompt;prompt.md
+      conversationStarters:
+        - Which customer promises are at risk this week?
+        - What did we promise Acme Logistics?
+        - Draft the close-the-loop reply for SUP-12
+      actions:
+        - list-promises
+        - draft-close-loop
+
+  action:
+    - key: list-promises
+      name: List customer promises
+      function: rovo-list-promises
+      actionVerb: GET
+      description: List promises support agents made to customers, filtered by customer or organization name, request key, agent name or status (open, at_risk, ready, kept, broken).
+      inputs:
+        customer:
+          title: Customer or organization
+          type: string
+          required: false
+          description: Customer or organization name to filter by, e.g. Acme Logistics.
+        issueKey:
+          title: Request key
+          type: string
+          required: false
+          description: A support request key such as SUP-12.
+        status:
+          title: Status
+          type: string
+          required: false
+          description: "One of: open, at_risk, ready, kept, broken. Use at_risk for promises in danger."
+    - key: draft-close-loop
+      name: Draft close-the-loop reply
+      function: rovo-draft-close-loop
+      actionVerb: GET
+      description: Build the facts for a close-the-loop reply to the customer on a support request whose promised fix is ready, or a status update for a promise at risk.
+      inputs:
+        issueKey:
+          title: Request key
+          type: string
+          required: true
+          description: The support request key, e.g. SUP-12.
+
   function:
     - key: resolver
-      handler: index.handler
+      handler: index.resolverHandler
+    - key: on-comment
+      handler: index.onComment
+    - key: on-issue-updated
+      handler: index.onIssueUpdated
+    - key: on-link-created
+      handler: index.onLinkCreated
+    - key: hourly
+      handler: index.hourly
+    - key: rovo-list-promises
+      handler: index.rovoListPromises
+    - key: rovo-draft-close-loop
+      handler: index.rovoDraftCloseLoop
+
 resources:
-  - key: main
-    path: src/frontend/index.jsx
+  - key: panel
+    path: src/frontend/panel.jsx
+  - key: dashboard
+    path: src/frontend/dashboard.jsx
+  - key: icons
+    path: static/icons
+  - key: agent-prompt
+    path: static/agent
+
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - read:jira-user
+    - storage:app
+
 app:
   runtime:
     name: nodejs24.x
     memoryMB: 256
     architecture: arm64
   id: ari:cloud:ecosystem::app/2df4cc25-8bbe-4140-a107-b76ad7af3941
+  storage:
+    entities:
+      - name: promise
+        attributes:
+          id: { type: string }
+          issueKey: { type: string }
+          issueId: { type: string }
+          projectKey: { type: string }
+          commentId: { type: string }
+          ownerAccountId: { type: string }
+          ownerName: { type: string }
+          ownerTimeZone: { type: string }
+          summary: { type: string }
+          customerName: { type: string }
+          kind: { type: string }
+          quote: { type: string }
+          sentence: { type: string }
+          dueAt: { type: integer }
+          dueSource: { type: string }
+          dueLabel: { type: string }
+          releaseRef: { type: string }
+          devIssueKey: { type: string }
+          status: { type: string }
+          reason: { type: string }
+          remindedAt: { type: integer }
+          createdAt: { type: integer }
+          updatedAt: { type: integer }
+          resolvedAt: { type: integer }
+          history: { type: any }
+        indexes:
+          - name: by-issue
+            partition: [issueKey]
+            range: [createdAt]
+          - name: by-dev-issue
+            partition: [devIssueKey]
+            range: [createdAt]
+          - name: by-status-due
+            partition: [status]
+            range: [dueAt]
+          - name: by-created
+            range: [createdAt]
