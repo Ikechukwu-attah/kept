@@ -160,6 +160,13 @@ function stripRelease(clause) {
  */
 export function resolveDue(clause, { now, timeZone }) {
   const local = wallClock(now, timeZone);
+  const ref = { instant: new Date(now), timezone: tzOffsetMinutes(now, timeZone) };
+  const parsed = chrono.parse(clause, ref, { forwardDate: true })[0];
+
+  // An explicit clock time wins over day words: "today at 4pm" is 4pm, not end of day.
+  if (parsed && parsed.start.isCertain('hour') && !/\bwithin\b/i.test(parsed.text)) {
+    return { at: parsed.start.date().getTime(), phrase: parsed.text };
+  }
 
   const bd = clause.match(BUSINESS_DAYS);
   if (bd) {
@@ -180,9 +187,6 @@ export function resolveDue(clause, { now, timeZone }) {
     if (at <= now) at = now + 2 * 3600 * 1000;
     return { at, phrase: clause.match(END_OF_WEEK)[0] };
   }
-
-  const ref = { instant: new Date(now), timezone: tzOffsetMinutes(now, timeZone) };
-  const parsed = chrono.parse(clause, ref, { forwardDate: true })[0];
 
   // "next week" with no weekday means "by the end of next week" (Friday 5pm).
   if (NEXT_WEEK_ONLY.test(clause) && (!parsed || !parsed.start.isCertain('weekday'))) {

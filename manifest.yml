@@ -118,6 +118,7 @@ permissions:
     - read:jira-work
     - write:jira-work
     - read:jira-user
+    - read:sprint:jira-software
     - storage:app
 
 app:

@@ -49,10 +49,7 @@ const App = () => {
 
   return (
     <Stack space="space.300">
-      <Stack space="space.050">
-        <Heading as="h1">Promises</Heading>
-        <Text color="color.text.subtle">Every commitment your agents made to customers in the last 60 days, found in their public replies.</Text>
-      </Stack>
+      <Text color="color.text.subtle">Every commitment your agents made to customers in the last 60 days, found in their public replies.</Text>
 
       <Inline space="space.200" shouldWrap>
         <Tile label="Due in the next 24 hours" value={String(s.dueSoon)} />

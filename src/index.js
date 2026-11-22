@@ -3,12 +3,12 @@
  * Rovo actions. Business rules live in src/core (pure, unit-tested); this file
  * only moves data between Jira, storage and those rules.
  */
-import api from '@forge/api';
+import api, { route } from '@forge/api';
 import Resolver from '@forge/resolver';
 import { adfToText } from './core/adf.js';
-import { extractPromises } from './core/extract.js';
+import { extractPromises, formatLocal } from './core/extract.js';
 import { ACTIVE, NO_DUE, applyAgentReply, applyDevChange, draftReply, stats, summariseChangelog, sweep, transition, versionMatches } from './core/lifecycle.js';
-import { zonedToUtc, formatLocal } from './core/time.js';
+import { zonedToUtc } from './core/time.js';
 import { addComment, getComment, getIssue, getUser, linkedDevIssueKeys, mentionAdf, textToAdf, userCanSee, visibleToUser } from './jira.js';
 import { getPromise, promisesByStatusDueBefore, promisesCreatedSince, promisesForDevIssue, promisesForIssue, savePromise } from './store.js';
 
@@ -97,6 +97,7 @@ export async function onIssueUpdated(event) {
   const change = summariseChangelog(event.changelog, { statusCategory: dev.fields.status?.statusCategory?.key });
   change.toVersions = (dev.fields.fixVersions || []).map((v) => v.name);
   change.actorName = await displayName(event.atlassianId);
+  if (change.removedSprintId && !change.sprintName) change.sprintName = await sprintName(change.removedSprintId);
   const now = Date.now();
 
   for (const p of promises) {
@@ -181,6 +182,12 @@ function customerOf(issue) {
     }
   }
   return parts.join(' · ');
+}
+
+async function sprintName(id) {
+  const res = await api.asApp().requestJira(route`/rest/agile/1.0/sprint/${id}`).catch(() => null);
+  if (!res?.ok) return '';
+  return (await res.json()).name || '';
 }
 
 async function displayName(accountId) {

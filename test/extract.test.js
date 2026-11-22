@@ -55,6 +55,12 @@ describe('extractPromises: catches real promises', () => {
     expect(local(p.dueAt)).toBe('2026-11-23 14:00');
   });
 
+  it('an explicit time beats "today"', () => {
+    const [p] = run("I'll call you today at 4pm with an update.");
+    expect(p.kind).toBe('callback');
+    expect(local(p.dueAt)).toBe('2026-11-20 16:00');
+  });
+
   it('next week means end of next week', () => {
     const [p] = run("We're going to deploy the patch next week.");
     expect(p.kind).toBe('fix');

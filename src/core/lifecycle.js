@@ -86,12 +86,16 @@ export function summariseChangelog(changelog, { statusCategory } = {}) {
   for (const it of items) {
     const field = String(it.field || '').toLowerCase();
     if (field === 'sprint') {
-      const from = splitList(it.fromString);
-      const to = splitList(it.toString);
+      // Jira sends sprint names in fromString/toString for UI edits, but only
+      // sprint ids in from/to for Agile API moves (e.g. "move to backlog").
+      const byName = it.fromString != null && it.fromString !== '';
+      const from = splitList(byName ? it.fromString : it.from);
+      const to = splitList(byName ? it.toString : it.to);
       const removed = from.filter((s) => !to.includes(s));
       if (removed.length) {
         out.removedFromSprint = true;
-        out.sprintName = removed[removed.length - 1];
+        if (byName) out.sprintName = removed[removed.length - 1];
+        else out.removedSprintId = removed[removed.length - 1];
       }
     }
     if (field === 'fix version' || field === 'fixversions') {

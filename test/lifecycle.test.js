@@ -43,6 +43,16 @@ describe('dev issue changes', () => {
     expect(change.removedFromSprint).toBe(true);
     expect(change.sprintName).toBe('Sprint 14');
   });
+  it('Agile API move to backlog (ids only) is a sprint removal', () => {
+    const change = summariseChangelog({ items: [{ field: 'Sprint', fieldId: 'customfield_10020', from: '2', to: '', toString: '' }] });
+    expect(change.removedFromSprint).toBe(true);
+    expect(change.removedSprintId).toBe('2');
+    const p = applyDevChange(fix, { ...change, sprintName: 'Sprint 14' }, T0);
+    expect(p.reason).toBe('DEV-12 was removed from Sprint 14.');
+  });
+  it('being added to a sprint is not a removal', () => {
+    expect(summariseChangelog({ items: [{ field: 'Sprint', from: '', fromString: '', to: '2' }] }).removedFromSprint).toBe(false);
+  });
   it('fix version moved away from the promised release', () => {
     const change = summariseChangelog({ items: [{ field: 'Fix Version', fromString: '2.4', toString: '2.5' }] });
     const p = applyDevChange(fix, { ...change, toVersions: ['2.5'] }, T0);
