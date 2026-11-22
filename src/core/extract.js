@@ -211,7 +211,11 @@ export function resolveDue(clause, { now, timeZone }) {
   return { at, phrase: parsed.text };
 }
 
-function buildPromise({ clause, sentence, kind, due, release, now, timeZone }) {
+/** "Hi Grace, I'll send…" -> "I'll send…": greetings are not part of the promise. */
+const GREETING = /^(?:hi|hello|hey|dear|good\s+(?:morning|afternoon|evening)|thanks|thank\s+you)\b[^,.!]{0,40}[,!]\s*/i;
+
+function buildPromise({ clause: rawClause, sentence, kind, due, release, now, timeZone }) {
+  const clause = rawClause.replace(GREETING, '') || rawClause;
   if (due) {
     return {
       quote: clause,

@@ -55,6 +55,12 @@ describe('extractPromises: catches real promises', () => {
     expect(local(p.dueAt)).toBe('2026-11-23 14:00');
   });
 
+  it('drops the greeting from the quote', () => {
+    const [p] = run("Hi Grace, I'll send the countersigned DPA within 2 hours.");
+    expect(p.quote).toBe("I'll send the countersigned DPA within 2 hours.");
+    expect(p.dueAt).toBe(NOW + 2 * 3600 * 1000);
+  });
+
   it('an explicit time beats "today"', () => {
     const [p] = run("I'll call you today at 4pm with an update.");
     expect(p.kind).toBe('callback');
