@@ -55,6 +55,16 @@ describe('extractPromises: catches real promises', () => {
     expect(local(p.dueAt)).toBe('2026-11-23 14:00');
   });
 
+  it('"it ships" refers back to a fix named earlier in the sentence', () => {
+    const ps = run('Thanks Priya. Engineering has a fix for large exports, and it ships in 2.4.');
+    expect(ps).toHaveLength(1);
+    expect(ps[0]).toMatchObject({ kind: 'fix', releaseRef: '2.4' });
+  });
+
+  it('a bare "it ships" with no fix mentioned is not a promise', () => {
+    expect(run('It ships in 2.4 boxes.')).toEqual([]);
+  });
+
   it('drops the greeting from the quote', () => {
     const [p] = run("Hi Grace, I'll send the countersigned DPA within 2 hours.");
     expect(p.quote).toBe("I'll send the countersigned DPA within 2 hours.");

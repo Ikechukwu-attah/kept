@@ -39,6 +39,11 @@ const COMMIT = new RegExp(
 const FIX_FUTURE =
   /\b(?:fix|patch|hotfix|update|change|feature|release|correction)\b[^.?!]*?\b(?:will\s+(?:ship|go\s+(?:out|live)|land|be\s+(?:out|live|available|released|deployed|fixed))|ships|goes\s+(?:out|live)|lands|is\s+(?:scheduled|planned|due|targeted)\s+for|should\s+be\s+(?:out|live|available))\b/i;
 
+/** "it / this / that" + ship verb, used when the sentence already names the fix. */
+const PRONOUN_SHIP =
+  /^\s*(?:it|this|that)\b[^.?!]*?\b(?:will\s+(?:ship|go\s+(?:out|live)|land|be\s+(?:out|live|available|released|deployed|fixed))|ships|goes\s+(?:out|live)|lands|is\s+(?:scheduled|planned|due|targeted)\s+for|should\s+be\s+(?:out|live|available))\b/i;
+const FIX_NOUN = /\b(?:fix|patch|hotfix|correction)\b/i;
+
 /** Hedges, conditionals and negations — these are not promises. */
 const HEDGE =
   /\b(?:try|trying|attempt|hope|hopefully|might|may|maybe|possibly|perhaps|probably|not\s+sure|can(?:'|’)?t\s+promise|cannot\s+promise|no\s+promises|won(?:'|’)t|will\s+not|unless|if\s+(?:we|i|you|it|this|that|there|anything|the|any|needed|necessary|possible))\b|\bwe(?:'|’)ll\s+see\b/i;
@@ -91,7 +96,8 @@ export function extractPromises(text, { now = Date.now(), timeZone = 'UTC' } = {
       if (HEDGE.test(clause) || REQUEST_TO_CUSTOMER.test(clause)) continue;
 
       const commits = COMMIT.test(clause);
-      const fixFuture = FIX_FUTURE.test(clause);
+      // "…has a fix, and it ships in 2.4": the pronoun refers to the fix named earlier in the sentence.
+      const fixFuture = FIX_FUTURE.test(clause) || (PRONOUN_SHIP.test(clause) && FIX_NOUN.test(sentence));
       if (commits) sentenceHasCommitment = true;
       if (!commits && !fixFuture) continue;
 

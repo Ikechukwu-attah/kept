@@ -158,7 +158,7 @@ const App = () => {
   return (
     <Stack space="space.100">
       {data.mode === 'dev' ? (
-        <SectionMessage appearance={atRisk ? 'warning' : 'information'} title={`${open.length} customer promise${open.length === 1 ? '' : 's'} depend on this issue`}>
+        <SectionMessage appearance={atRisk ? 'warning' : 'information'} title={`${open.length} customer promise${open.length === 1 ? ' depends' : 's depend'} on this issue`}>
           <Text>
             Promised on {customers} support request{customers === 1 ? '' : 's'}. Moving this issue out of its sprint or release puts them at risk, and resolving it lets the agents close the loop.
           </Text>
