@@ -1,12 +1,12 @@
 /**
  * Promises issue panel (UI Kit).
- *  - On a support request: every promise the agents made to this customer.
+ *  - On a support request: every promise the agents made to this customer, as cards.
  *  - On a dev issue: the customer promises that depend on it ("reverse view").
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import ForgeReconciler, {
-  Box, Button, ButtonGroup, EmptyState, Heading, Inline, Link, Lozenge, Modal, ModalBody, ModalFooter,
-  ModalHeader, ModalTitle, ModalTransition, SectionMessage, Spinner, Stack, Text, TextArea, Em, Strong,
+  Box, Button, ButtonGroup, EmptyState, Em, Heading, Icon, Inline, Link, Lozenge, Modal, ModalBody, ModalFooter,
+  ModalHeader, ModalTitle, ModalTransition, SectionMessage, Spinner, Stack, Strong, Text, TextArea, xcss,
 } from '@forge/react';
 import { invoke } from '@forge/bridge';
 
@@ -18,27 +18,46 @@ const STATUS = {
   broken: { label: 'Broken', appearance: 'removed' },
   dismissed: { label: 'Not a promise', appearance: 'default' },
 };
-const KIND = { update: 'Update', fix: 'Fix', refund: 'Refund', callback: 'Callback', action: 'Action' };
+const KIND = {
+  update: { label: 'Update', icon: 'email' },
+  fix: { label: 'Fix', icon: 'bug' },
+  refund: { label: 'Refund', icon: 'shortcut' },
+  callback: { label: 'Callback', icon: 'person' },
+  action: { label: 'Action', icon: 'arrow-right' },
+};
 const ACTIVE = ['open', 'at_risk', 'ready'];
 
-/** "due in 2 days" / "overdue by 3 hours" relative to now. */
-function relative(dueAt) {
-  if (!dueAt) return '';
+const card = (status) =>
+  xcss({
+    padding: 'space.150',
+    borderRadius: 'border.radius.200',
+    borderWidth: 'border.width',
+    borderStyle: 'solid',
+    borderColor:
+      status === 'at_risk' ? 'color.border.warning' : status === 'broken' ? 'color.border.danger' : status === 'ready' ? 'color.border.discovery' : 'color.border',
+    backgroundColor: ACTIVE.includes(status) || status === 'broken' ? 'elevation.surface' : 'color.background.neutral.subtle',
+  });
+const summaryBar = xcss({ padding: 'space.100', borderRadius: 'border.radius.100', backgroundColor: 'color.background.neutral' });
+
+/** Countdown text and colour: red when overdue or due within a day. */
+function countdown(dueAt) {
+  if (!dueAt) return null;
   const diff = dueAt - Date.now();
   const abs = Math.abs(diff);
-  const unit = abs >= 86400000 ? ['day', 86400000] : ['hour', 3600000];
-  const n = Math.max(1, Math.round(abs / unit[1]));
-  const s = `${n} ${unit[0]}${n > 1 ? 's' : ''}`;
-  return diff >= 0 ? `due in ${s}` : `overdue by ${s}`;
+  const days = Math.floor(abs / 86400000);
+  const hours = Math.round((abs % 86400000) / 3600000);
+  const span = days >= 1 ? `${days}d ${hours}h` : `${Math.max(Math.round(abs / 3600000), 1)}h`;
+  if (diff < 0) return { text: `${span} overdue`, color: 'color.text.danger' };
+  return { text: `due in ${span}`, color: diff < 86400000 ? 'color.text.danger' : diff < 2 * 86400000 ? 'color.text.warning' : 'color.text.subtle' };
 }
 
+const fmt = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 function formatDue(p) {
   if (!p.dueAt) return p.dueLabel;
-  const when = new Date(p.dueAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  return p.dueSource === 'default' ? `${when} (no date given, defaulted)` : when;
+  return p.dueSource === 'default' ? `${fmt(p.dueAt)} (no date given, defaulted)` : fmt(p.dueAt);
 }
 
-const PromiseRow = ({ p, mode, onChanged, onDraft }) => {
+const PromiseCard = ({ p, mode, onChanged, onDraft }) => {
   const [busy, setBusy] = useState(false);
   const act = async (op, extra = {}) => {
     setBusy(true);
@@ -47,21 +66,24 @@ const PromiseRow = ({ p, mode, onChanged, onDraft }) => {
     if (res?.promise) onChanged(res.promise);
   };
   const st = STATUS[p.status] || STATUS.open;
+  const kind = KIND[p.kind] || KIND.action;
   const active = ACTIVE.includes(p.status);
+  const cd = active ? countdown(p.dueAt) : null;
 
   return (
-    <Box xcss={{ paddingBlock: 'space.150', borderBottomWidth: 'border.width', borderBottomStyle: 'solid', borderBottomColor: 'color.border' }}>
+    <Box xcss={card(p.status)}>
       <Stack space="space.100">
-        <Inline space="space.100" alignBlock="center" shouldWrap>
-          <Lozenge appearance={st.appearance} isBold={p.status === 'at_risk' || p.status === 'broken'}>{st.label}</Lozenge>
-          <Lozenge>{KIND[p.kind] || p.kind}</Lozenge>
-          {active && p.dueAt ? <Text size="small" color="color.text.subtle">{relative(p.dueAt)}</Text> : null}
-          {mode === 'dev' ? <Link href={`/browse/${p.issueKey}`}>{p.issueKey}</Link> : null}
+        <Inline space="space.100" alignBlock="center" spread="space-between" shouldWrap>
+          <Inline space="space.100" alignBlock="center">
+            <Icon glyph={kind.icon} label={kind.label} size="small" />
+            <Strong>{kind.label}</Strong>
+            <Lozenge appearance={st.appearance} isBold={p.status === 'at_risk' || p.status === 'broken'}>{st.label}</Lozenge>
+            {mode === 'dev' ? <Link href={`/browse/${p.issueKey}`}>{p.issueKey}</Link> : null}
+          </Inline>
+          {cd ? <Text size="small" weight="semibold" color={cd.color}>{cd.text}</Text> : null}
         </Inline>
 
-        <Text>
-          “{p.quote}”
-        </Text>
+        <Text size="large">“{p.quote}”</Text>
 
         {(p.status === 'at_risk' || p.status === 'ready' || p.status === 'broken') && p.reason ? (
           <SectionMessage appearance={p.status === 'ready' ? 'success' : p.status === 'broken' ? 'error' : 'warning'}>
@@ -69,18 +91,30 @@ const PromiseRow = ({ p, mode, onChanged, onDraft }) => {
           </SectionMessage>
         ) : null}
 
-        <Text size="small" color="color.text.subtle">
-          Due <Strong>{formatDue(p)}</Strong> · Owner {p.ownerName}
-          {mode === 'dev' && p.customerName ? ` · Customer ${p.customerName}` : ''}
-          {mode !== 'dev' && p.devIssueKey ? ' · Depends on ' : ''}
-        </Text>
-        {mode !== 'dev' && p.devIssueKey ? <Link href={`/browse/${p.devIssueKey}`}>{p.devIssueKey}</Link> : null}
+        <Inline space="space.150" shouldWrap alignBlock="center">
+          <Inline space="space.050" alignBlock="center">
+            <Icon glyph="calendar" label="Due" size="small" />
+            <Text size="small" color="color.text.subtle">{formatDue(p)}</Text>
+          </Inline>
+          <Inline space="space.050" alignBlock="center">
+            <Icon glyph="person" label="Owner" size="small" />
+            <Text size="small" color="color.text.subtle">{p.ownerName}</Text>
+          </Inline>
+          {mode === 'dev' && p.customerName ? <Text size="small" color="color.text.subtle">Customer: {p.customerName}</Text> : null}
+          {mode !== 'dev' && p.devIssueKey ? (
+            <Inline space="space.050" alignBlock="center">
+              <Icon glyph="bug" label="Depends on" size="small" />
+              <Link href={`/browse/${p.devIssueKey}`}>{p.devIssueKey}</Link>
+            </Inline>
+          ) : null}
+        </Inline>
+
         {!active ? <Text size="small" color="color.text.subtle"><Em>{p.reason}</Em></Text> : null}
 
-        {mode !== 'dev' ? (
+        {mode !== 'dev' && (active || p.status === 'broken' || p.status === 'dismissed') ? (
           <ButtonGroup>
-            {active && (p.status === 'ready' || p.status === 'at_risk') ? (
-              <Button appearance="primary" isDisabled={busy} onClick={() => onDraft(p)}>Tell customer</Button>
+            {p.status === 'ready' || p.status === 'at_risk' ? (
+              <Button appearance="primary" iconBefore="email" isDisabled={busy} onClick={() => onDraft(p)}>Tell customer</Button>
             ) : null}
             {active ? <Button isDisabled={busy} onClick={() => act('kept')}>Mark kept</Button> : null}
             {active || p.status === 'broken' ? <Button isDisabled={busy} onClick={() => act('extend', { days: 2 })}>Extend 2 days</Button> : null}
@@ -148,33 +182,57 @@ const App = () => {
   }
 
   const promises = data.promises;
+  const open = promises.filter((p) => ACTIVE.includes(p.status));
+  const done = promises.filter((p) => !ACTIVE.includes(p.status));
   const atRisk = promises.filter((p) => p.status === 'at_risk').length;
   const ready = promises.filter((p) => p.status === 'ready').length;
-  const open = promises.filter((p) => ACTIVE.includes(p.status));
+  const broken = promises.filter((p) => p.status === 'broken').length;
+  const kept = promises.filter((p) => p.status === 'kept').length;
+  const next = open.filter((p) => p.dueAt).sort((a, b) => a.dueAt - b.dueAt)[0];
   const customers = new Set(promises.map((p) => p.issueKey)).size;
-
   const onChanged = (updated) => setData({ ...data, promises: promises.map((p) => (p.id === updated.id ? updated : p)) });
 
   return (
-    <Stack space="space.100">
+    <Stack space="space.150">
       {data.mode === 'dev' ? (
         <SectionMessage appearance={atRisk ? 'warning' : 'information'} title={`${open.length} customer promise${open.length === 1 ? ' depends' : 's depend'} on this issue`}>
           <Text>
             Promised on {customers} support request{customers === 1 ? '' : 's'}. Moving this issue out of its sprint or release puts them at risk, and resolving it lets the agents close the loop.
           </Text>
         </SectionMessage>
-      ) : atRisk || ready ? (
-        <SectionMessage appearance={atRisk ? 'warning' : 'success'}>
-          <Text>
-            {atRisk ? `${atRisk} promise${atRisk > 1 ? 's' : ''} at risk. ` : ''}
-            {ready ? `${ready} fix${ready > 1 ? 'es are' : ' is'} live: tell the customer.` : ''}
-          </Text>
-        </SectionMessage>
-      ) : null}
+      ) : (
+        <Box xcss={summaryBar}>
+          <Inline space="space.150" alignBlock="center" shouldWrap>
+            <Inline space="space.075" alignBlock="center">
+              <Icon glyph="check-circle" label="" size="small" />
+              <Strong>{open.length} open</Strong>
+            </Inline>
+            {atRisk ? <Lozenge appearance="moved" isBold>{atRisk} at risk</Lozenge> : null}
+            {ready ? <Lozenge appearance="new" isBold>{ready} ready to close the loop</Lozenge> : null}
+            {broken ? <Lozenge appearance="removed" isBold>{broken} broken</Lozenge> : null}
+            {kept ? <Lozenge appearance="success">{kept} kept</Lozenge> : null}
+            {next ? (
+              <Inline space="space.050" alignBlock="center">
+                <Icon glyph="clock" label="" size="small" />
+                <Text size="small">Next due {fmt(next.dueAt)}</Text>
+              </Inline>
+            ) : null}
+          </Inline>
+        </Box>
+      )}
 
-      {promises.map((p) => (
-        <PromiseRow key={p.id} p={p} mode={data.mode} onChanged={onChanged} onDraft={setDrafting} />
+      {open.map((p) => (
+        <PromiseCard key={p.id} p={p} mode={data.mode} onChanged={onChanged} onDraft={setDrafting} />
       ))}
+
+      {done.length ? (
+        <Stack space="space.100">
+          <Heading as="h5">Resolved ({done.length})</Heading>
+          {done.map((p) => (
+            <PromiseCard key={p.id} p={p} mode={data.mode} onChanged={onChanged} onDraft={setDrafting} />
+          ))}
+        </Stack>
+      ) : null}
 
       <ModalTransition>
         {drafting ? (

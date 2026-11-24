@@ -151,6 +151,37 @@ export function draftReply(p, { customerFirstName, agentFirstName } = {}) {
   return `${hi}\n\nAs promised, here is an update on your request: [what changed].${sign}`;
 }
 
+const STATUS_LABEL = { open: 'Open', at_risk: 'At risk', ready: 'Ready to close the loop', kept: 'Kept', broken: 'Broken' };
+
+/**
+ * Chart data for the dashboard.
+ *  weekly: kept vs broken per week, by the week the promise was *decided* (resolvedAt), last `weeks` weeks
+ *  mix:    active promises right now, by status
+ *  kinds:  all promises in the window, by kind
+ */
+export function trends(promises, now, weeks = 6) {
+  const WEEK = 7 * DAY;
+  const start = now - weeks * WEEK;
+  const label = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const weekly = [];
+  for (let w = 0; w < weeks; w++) {
+    const from = start + w * WEEK;
+    const to = from + WEEK;
+    const inWeek = promises.filter((p) => p.resolvedAt >= from && p.resolvedAt < to);
+    const name = `Wk of ${label(from)}`;
+    weekly.push({ week: name, status: 'Kept', count: inWeek.filter((p) => p.status === 'kept').length });
+    weekly.push({ week: name, status: 'Broken', count: inWeek.filter((p) => p.status === 'broken').length });
+  }
+  const mix = ['open', 'at_risk', 'ready']
+    .map((s) => ({ status: STATUS_LABEL[s], count: promises.filter((p) => p.status === s).length }))
+    .filter((r) => r.count > 0);
+  const kindNames = { update: 'Update', fix: 'Fix', refund: 'Refund', callback: 'Callback', action: 'Action' };
+  const kinds = Object.entries(kindNames)
+    .map(([k, name]) => ({ kind: name, count: promises.filter((p) => p.kind === k).length }))
+    .filter((r) => r.count > 0);
+  return { weekly, mix, kinds };
+}
+
 /** Dashboard numbers from a list of promises. */
 export function stats(promises, now) {
   const startOfWindow = now - 30 * DAY;

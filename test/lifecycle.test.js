@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyAgentReply, applyDevChange, summariseChangelog, sweep, versionMatches, stats, NO_DUE } from '../src/core/lifecycle.js';
+import { applyAgentReply, applyDevChange, summariseChangelog, sweep, versionMatches, stats, trends, NO_DUE } from '../src/core/lifecycle.js';
 
 const T0 = Date.parse('2026-11-20T15:00:00Z');
 const H = 3600 * 1000;
@@ -92,6 +92,27 @@ describe('sweep', () => {
   });
   it('ignores release-bound promises with no date', () => {
     expect(sweep(base({ dueAt: NO_DUE }), T0).promise.status).toBe('open');
+  });
+});
+
+describe('trends', () => {
+  it('buckets kept/broken by the week they were decided and mixes active statuses', () => {
+    const now = T0;
+    const d = 24 * H;
+    const ps = [
+      base({ status: 'kept', resolvedAt: now - 1 * d }),
+      base({ status: 'kept', resolvedAt: now - 2 * d }),
+      base({ status: 'broken', resolvedAt: now - 9 * d }),
+      base({ status: 'at_risk', kind: 'fix' }),
+      base({ status: 'open' }),
+    ];
+    const t = trends(ps, now, 6);
+    expect(t.weekly).toHaveLength(12);
+    const last = t.weekly.slice(-2);
+    expect(last.find((r) => r.status === 'Kept').count).toBe(2);
+    expect(t.weekly.slice(-4, -2).find((r) => r.status === 'Broken').count).toBe(1);
+    expect(t.mix).toEqual([{ status: 'Open', count: 1 }, { status: 'At risk', count: 1 }]);
+    expect(t.kinds.find((k) => k.kind === 'Fix').count).toBe(1);
   });
 });
 

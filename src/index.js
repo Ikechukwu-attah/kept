@@ -7,7 +7,7 @@ import api, { route } from '@forge/api';
 import Resolver from '@forge/resolver';
 import { adfToText } from './core/adf.js';
 import { extractPromises, formatLocal } from './core/extract.js';
-import { ACTIVE, NO_DUE, applyAgentReply, applyDevChange, draftReply, stats, summariseChangelog, sweep, transition, versionMatches } from './core/lifecycle.js';
+import { ACTIVE, NO_DUE, applyAgentReply, applyDevChange, draftReply, stats, summariseChangelog, sweep, transition, trends, versionMatches } from './core/lifecycle.js';
 import { zonedToUtc } from './core/time.js';
 import { addComment, getComment, getIssue, getUser, linkedDevIssueKeys, mentionAdf, textToAdf, userCanSee, visibleToUser } from './jira.js';
 import { getPromise, promisesByStatusDueBefore, promisesCreatedSince, promisesForDevIssue, promisesForIssue, savePromise } from './store.js';
@@ -276,6 +276,7 @@ resolver.define('getDashboard', async () => {
   return {
     now,
     stats: stats(list, now),
+    trends: trends(list, now, 6),
     attention: sortForPanel(list.filter((p) => ACTIVE.includes(p.status) || p.status === 'broken')).slice(0, 50).map(publicView),
     owners: Object.values(byOwner).sort((a, b) => b.active - a.active),
   };
