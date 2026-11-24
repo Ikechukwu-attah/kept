@@ -42,7 +42,7 @@ src/jira.js                Jira REST helpers (asApp for triggers, asUser for use
 src/frontend/panel.jsx     Promises panel (UI Kit): request view, reverse dev-issue view, reply modal
 src/frontend/dashboard.jsx dashboard (UI Kit)
 static/agent/prompt.md     Promise Keeper agent prompt
-test/                      52 Vitest tests for extraction, lifecycle and storage conversion
+test/                      54 Vitest tests for extraction, lifecycle and storage conversion
 ```
 
 ## Run it yourself
@@ -51,7 +51,7 @@ Requirements: Node.js 22.23+ and the Forge CLI (`npm i -g @forge/cli`), plus an 
 
 ```bash
 npm install
-npm test                      # 52 unit tests
+npm test                      # 54 unit tests
 forge register                # once, to register your own copy of the app
 forge deploy -e development
 forge install --site <your-site>.atlassian.net --product jira -e development

@@ -147,7 +147,7 @@ function classify(clause, release) {
 function findRelease(clause) {
   const explicit = clause.match(RELEASE_EXPLICIT);
   if (explicit) return explicit[1];
-  if (/\b(?:fix|patch|ship|release|deploy|land|version|out|live)\b/i.test(clause)) {
+  if (/\b(?:fix(?:es)?|patch(?:es)?|ship(?:s|ping)?|release[sd]?|deploy(?:s|ed)?|lands?|version|out|live)\b/i.test(clause)) {
     const bare = clause.match(RELEASE_BARE);
     if (bare) return bare[1];
   }
